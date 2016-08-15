@@ -10,19 +10,21 @@
 #import <AVFoundation/AVFoundation.h>
 #import "UIImage+help.h"
 
+//#define FACE
+
 @interface ViewController ()<AVCaptureVideoDataOutputSampleBufferDelegate,AVCaptureMetadataOutputObjectsDelegate,AVCaptureMetadataOutputObjectsDelegate>
 //硬件设备
 @property (nonatomic, strong) AVCaptureDevice *device;
 //输入流
 @property (nonatomic, strong) AVCaptureDeviceInput *input;
-//捕捉会话
+//协调输入输出流的数据
 @property (nonatomic, strong) AVCaptureSession *session;
 //预览层
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
 
 //输出流
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;  //用于捕捉静态图片
-@property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;    //原始视频帧，用于实时扫图以及视频录制
+@property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;    //原始视频帧，用于获取实时图像以及视频录制
 @property (nonatomic, strong) AVCaptureMetadataOutput *metadataOutput;      //用于二维码识别以及人脸识别
 
 //闪光灯
@@ -136,9 +138,14 @@
         return;
     }
     if (metadataObjects.count>0) {
-        [self.session stopRunning];
         AVMetadataMachineReadableCodeObject *metadataObject = [metadataObjects objectAtIndex :0];
-        NSLog(@"二维码内容 ： %@",metadataObject.stringValue);
+#ifndef FACE
+        [self.session stopRunning];
+        NSLog(@"qrcode is : %@",metadataObject.stringValue);
+#else
+        AVMetadataObject *faceData = [self.previewLayer transformedMetadataObjectForMetadataObject:metadataObject];
+        NSLog(@"faceData is : %@",faceData);
+#endif
     }
 }
 
@@ -253,7 +260,7 @@
 }
 
 -(void)setupMenuButton{
-    NSArray *titles = @[@"静态图片",@"实时扫图",@"扫二维码"];
+    NSArray *titles = @[@"截取静态图像",@"截取实时图像",@"二维码识别"];
     CGFloat width = [UIScreen mainScreen].bounds.size.width / titles.count;
     for (int i = 0; i < 3; i ++) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -346,6 +353,7 @@
         }
         if ([_session canAddOutput:self.metadataOutput]) {
             [_session addOutput:self.metadataOutput];
+#ifndef FACE
             //设置扫码格式
             self.metadataOutput.metadataObjectTypes = @[
                                                         AVMetadataObjectTypeQRCode,
@@ -353,6 +361,9 @@
                                                         AVMetadataObjectTypeEAN8Code,
                                                         AVMetadataObjectTypeCode128Code
                                                         ];
+#else
+            self.metadataOutput.metadataObjectTypes = @[AVMetadataObjectTypeFace];
+#endif
         }
     }
     return _session;
